@@ -62,4 +62,3 @@ uploadFile(1024, 'QmSomeEncryptedHash');
 payForStorage(1, web3.utils.toWei('0.1', 'ether'));
 addAuthorizedUser(1, '0xSomeUserAddress');
 isAuthorized(1, '0xSomeUserAddress');
-
