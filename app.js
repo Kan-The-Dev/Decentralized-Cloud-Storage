@@ -1,82 +1,65 @@
-// Required modules
-const express = require('express');
-const multer = require('multer');
-const { create } = require('ipfs-http-client');
-const ethers = require('ethers');
-const dotenv = require('dotenv');
+const Web3 = require('web3');
+const { abi, evm } = require('./DecentralizedCloudStorage.json'); // ABI and Bytecode from the compiled contract
 
-// Load environment variables from .env file
-dotenv.config();
+const web3 = new Web3('http://localhost:8545'); // Change this to your local network or Infura URL
+const account = '0xYourAccountAddress'; // Replace with your Ethereum account address
+const contractAddress = '0xYourContractAddress'; // Replace with your deployed contract address
 
-// IPFS client setup
-const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' });
+const contract = new web3.eth.Contract(abi, contractAddress);
 
-// Set up Express server
-const app = express();
-const port = 5000;
-
-// Middleware to parse JSON and handle form data
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Setup file storage (local storage for uploaded files)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  }
-});
-const upload = multer({ storage: storage });
-
-// Route to upload a file to IPFS and log file on blockchain
-app.post('/upload', upload.single('file'), async (req, res) => {
+// Function to upload a file
+async function uploadFile(size, encryptedIpfsHash) {
   try {
-    // Upload the file to IPFS
-    const file = req.file;
-    const addedFile = await ipfs.add(file.buffer);
+    const accounts = await web3.eth.getAccounts();
+    const result = await contract.methods.uploadFile(size, encryptedIpfsHash)
+      .send({ from: accounts[0] });
 
-    // Get the file hash
-    const fileHash = addedFile.path;
-
-    // Call the smart contract to store file info (implement this later)
-    // For now, we log the file hash
-    console.log(`File uploaded to IPFS with hash: ${fileHash}`);
-
-    res.json({ fileHash, message: 'File uploaded successfully!' });
+    console.log('File uploaded:', result);
   } catch (error) {
     console.error('Error uploading file:', error);
-    res.status(500).json({ error: 'Failed to upload file' });
   }
-});
+}
 
-// Route to share a file by sharing the file hash
-app.post('/share', async (req, res) => {
-  const { fileHash, recipientAddress } = req.body;
-
-  // Call the smart contract to share the file (implement this later)
-  console.log(`Sharing file with hash: ${fileHash} to ${recipientAddress}`);
-
-  res.json({ message: 'File shared successfully!' });
-});
-
-// Route to make a payment for storage
-app.post('/pay', async (req, res) => {
-  const { fileId, amount } = req.body;
-
+// Function to pay for storage
+async function payForStorage(fileId, amount) {
   try {
-    // Payment logic (interact with smart contract later)
-    console.log(`Payment for file ID ${fileId}: ${amount} ETH`);
+    const accounts = await web3.eth.getAccounts();
+    const result = await contract.methods.payForStorage(fileId, amount)
+      .send({ from: accounts[0], value: amount });
 
-    res.json({ message: 'Payment successful!' });
+    console.log('Payment made:', result);
   } catch (error) {
-    console.error('Payment error:', error);
-    res.status(500).json({ error: 'Payment failed' });
+    console.error('Error paying for storage:', error);
   }
-});
+}
 
-// Set up the server to listen
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+// Function to add an authorized user
+async function addAuthorizedUser(fileId, userAddress) {
+  try {
+    const accounts = await web3.eth.getAccounts();
+    const result = await contract.methods.addAuthorizedUser(fileId, userAddress)
+      .send({ from: accounts[0] });
+
+    console.log('Authorized user added:', result);
+  } catch (error) {
+    console.error('Error adding authorized user:', error);
+  }
+}
+
+// Function to check if a user is authorized
+async function isAuthorized(fileId, userAddress) {
+  try {
+    const result = await contract.methods.isAuthorized(fileId, userAddress).call();
+    console.log('Is user authorized?', result);
+    return result;
+  } catch (error) {
+    console.error('Error checking authorization:', error);
+  }
+}
+
+// Example: Call the functions
+uploadFile(1024, 'QmSomeEncryptedHash');
+payForStorage(1, web3.utils.toWei('0.1', 'ether'));
+addAuthorizedUser(1, '0xSomeUserAddress');
+isAuthorized(1, '0xSomeUserAddress');
+
